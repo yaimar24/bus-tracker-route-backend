@@ -1,0 +1,6 @@
+@bus_tracker_route_HostAddress = http://localhost:5262
+
+GET {{bus_tracker_route_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
