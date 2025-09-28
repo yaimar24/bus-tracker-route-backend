@@ -7,7 +7,7 @@
         public string? Model { get; set; }
         public int? Capacity { get; set; }
         public bool IsActive { get; set; } = true;
-        public bool Year { get; set; } = true;
+        public int Year { get; set; } = DateTime.Now.Year;
 
         // FK
         public int CompanyId { get; set; }

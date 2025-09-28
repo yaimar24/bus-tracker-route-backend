@@ -7,7 +7,7 @@ using bus_tracker_route.Models.DTO;
 namespace BusTracker.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
     public class BusRoutesController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -23,6 +23,7 @@ namespace BusTracker.Controllers
         {
             var routes = await _db.BusRoutes
                 .Include(r => r.Stops)
+                .Include(r => r.Company)
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -34,12 +35,15 @@ namespace BusTracker.Controllers
                 Origin = r.Origin,
                 Destination = r.Destination,
                 IsActive = r.IsActive,
+                CompanyId = r.CompanyId,
                 Stops = r.Stops?
                     .OrderBy(s => s.Order)
                     .Select(s => new RouteStopDto
                     {
                         Id = s.Id,
                         Name = s.Name,
+                        Latitude = s.Latitude,
+                        Longitude = s.Longitude,
                         Order = s.Order
                     }).ToList() ?? new List<RouteStopDto>()
             });
@@ -47,12 +51,12 @@ namespace BusTracker.Controllers
             return Ok(dto);
         }
 
-        // GET /busroutes/5
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
             var route = await _db.BusRoutes
                 .Include(r => r.Stops)
+                .Include(r => r.Company)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == id);
 
@@ -66,12 +70,15 @@ namespace BusTracker.Controllers
                 Origin = route.Origin,
                 Destination = route.Destination,
                 IsActive = route.IsActive,
+                CompanyId = route.CompanyId,
                 Stops = route.Stops?
                     .OrderBy(s => s.Order)
                     .Select(s => new RouteStopDto
                     {
                         Id = s.Id,
                         Name = s.Name,
+                        Latitude = s.Latitude,
+                        Longitude = s.Longitude,
                         Order = s.Order
                     }).ToList() ?? new List<RouteStopDto>()
             };
@@ -79,47 +86,103 @@ namespace BusTracker.Controllers
             return Ok(dto);
         }
 
-        // POST /busroutes
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] BusRoute route)
+        public async Task<IActionResult> Create([FromBody] BusRouteDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var company = await _db.Companies.FindAsync(dto.CompanyId);
+            if (company == null)
+                return BadRequest($"No existe la compañía con id {dto.CompanyId}");
+
+            var route = new BusRoute
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                Origin = dto.Origin,
+                Destination = dto.Destination,
+                IsActive = dto.IsActive,
+                CompanyId = dto.CompanyId,
+                Stops = dto.Stops?.Select(s => new RouteStop
+                {
+                    Name = s.Name,
+                    Latitude = s.Latitude,
+                    Longitude = s.Longitude,
+                    Order = s.Order
+                }).ToList()
+            };
 
             _db.BusRoutes.Add(route);
             await _db.SaveChangesAsync();
 
-            var dto = new BusRouteDto
+            dto.Id = route.Id;
+            dto.Stops = route.Stops?.Select(s => new RouteStopDto
             {
-                Id = route.Id,
-                Name = route.Name,
-                Description = route.Description,
-                Origin = route.Origin,
-                Destination = route.Destination,
-                IsActive = route.IsActive,
-                Stops = new List<RouteStopDto>() // Inicialmente vacío
-            };
+                Id = s.Id,
+                Name = s.Name,
+                Latitude = s.Latitude,
+                Longitude = s.Longitude,
+                Order = s.Order
+            }).ToList();
 
             return CreatedAtAction(nameof(GetById), new { id = route.Id }, dto);
         }
 
-        // PUT /busroutes/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] BusRoute updated)
+        public async Task<IActionResult> Update(int id, [FromBody] BusRouteDto dto)
         {
-            var route = await _db.BusRoutes.FindAsync(id);
+            var route = await _db.BusRoutes
+                .Include(r => r.Stops)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (route == null) return NotFound();
 
-            route.Name = updated.Name;
-            route.Description = updated.Description;
-            route.Origin = updated.Origin;
-            route.Destination = updated.Destination;
-            route.IsActive = updated.IsActive;
+            var company = await _db.Companies.FindAsync(dto.CompanyId);
+            if (company == null)
+                return BadRequest($"No existe la compañía con id {dto.CompanyId}");
+
+            // Actualizar ruta
+            route.Name = dto.Name;
+            route.Description = dto.Description;
+            route.Origin = dto.Origin;
+            route.Destination = dto.Destination;
+            route.IsActive = dto.IsActive;
+            route.CompanyId = dto.CompanyId;
+
+            // Eliminar paradas que ya no existen en el DTO
+            var stopsToRemove = route.Stops
+                .Where(s => !dto.Stops.Any(ds => ds.Order == s.Order))
+                .ToList();
+            foreach (var stop in stopsToRemove)
+                _db.RouteStops.Remove(stop);
+
+            // Actualizar existentes o agregar nuevas
+            foreach (var stopDto in dto.Stops)
+            {
+                var existingStop = route.Stops.FirstOrDefault(s => s.Order == stopDto.Order);
+                if (existingStop != null)
+                {
+                    existingStop.Name = stopDto.Name;
+                    existingStop.Latitude = stopDto.Latitude;
+                    existingStop.Longitude = stopDto.Longitude;
+                }
+                else
+                {
+                    route.Stops.Add(new RouteStop
+                    {
+                        Name = stopDto.Name,
+                        Latitude = stopDto.Latitude,
+                        Longitude = stopDto.Longitude,
+                        Order = stopDto.Order
+                    });
+                }
+            }
 
             await _db.SaveChangesAsync();
             return NoContent();
         }
 
-        // DELETE /busroutes/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -130,21 +193,20 @@ namespace BusTracker.Controllers
             await _db.SaveChangesAsync();
             return NoContent();
         }
+
         [HttpGet("{routeId}/buses")]
         public async Task<IActionResult> GetBusesByRoute(int routeId)
         {
-            // Verificar que la ruta exista
             var route = await _db.BusRoutes
-                .Include(r => r.Stops.OrderBy(s => s.Order)) // incluimos las paradas en orden
+                .Include(r => r.Stops.OrderBy(s => s.Order))
                 .FirstOrDefaultAsync(r => r.Id == routeId);
 
             if (route == null)
                 return NotFound($"Ruta con id {routeId} no encontrada.");
 
-            // Buscar buses asignados a la ruta
             var buses = await _db.BusAssignments
                 .Where(a => a.BusRouteId == routeId)
-                .Include(a => a.Bus) // cargamos la relación con Bus
+                .Include(a => a.Bus)
                 .Select(a => new BusWithRouteDto
                 {
                     Id = a.Bus.Id,
@@ -171,11 +233,5 @@ namespace BusTracker.Controllers
 
             return Ok(buses);
         }
-
     }
-
-
- 
-
-
 }

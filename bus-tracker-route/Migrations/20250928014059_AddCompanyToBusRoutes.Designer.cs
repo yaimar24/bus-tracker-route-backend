@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace bus_tracker_route.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250924061513_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250928014059_AddCompanyToBusRoutes")]
+    partial class AddCompanyToBusRoutes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -173,6 +173,9 @@ namespace bus_tracker_route.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -190,6 +193,8 @@ namespace bus_tracker_route.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
 
                     b.ToTable("BusRoutes");
                 });
@@ -344,6 +349,17 @@ namespace bus_tracker_route.Migrations
                     b.Navigation("Bus");
                 });
 
+            modelBuilder.Entity("BusTracker.Models.BusRoute", b =>
+                {
+                    b.HasOne("BusTracker.Models.Company", "Company")
+                        .WithMany("BusRoutes")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
             modelBuilder.Entity("BusTracker.Models.Driver", b =>
                 {
                     b.HasOne("BusTracker.Models.Company", "Company")
@@ -384,6 +400,8 @@ namespace bus_tracker_route.Migrations
 
             modelBuilder.Entity("BusTracker.Models.Company", b =>
                 {
+                    b.Navigation("BusRoutes");
+
                     b.Navigation("Buses");
 
                     b.Navigation("Drivers");

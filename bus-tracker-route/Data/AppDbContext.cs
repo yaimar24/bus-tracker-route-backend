@@ -34,6 +34,11 @@ namespace BusTracker.Data
                 .WithOne(d => d.Company)
                 .HasForeignKey(d => d.CompanyId);
 
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.BusRoutes)
+                .WithOne(r => r.Company)
+                .HasForeignKey(r => r.CompanyId);
+
             // Bus
             modelBuilder.Entity<Bus>()
                 .HasIndex(b => b.PlateNumber)
@@ -82,10 +87,11 @@ namespace BusTracker.Data
 
             // BusAssignment
             modelBuilder.Entity<BusAssignment>()
-         .HasOne(a => a.Bus)
-         .WithMany(b => b.Assignments)
-         .HasForeignKey(a => a.BusId)
-         .OnDelete(DeleteBehavior.Restrict); 
+                .HasOne(a => a.Bus)
+                .WithMany(b => b.Assignments)
+                .HasForeignKey(a => a.BusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<BusAssignment>()
                 .HasOne(a => a.Driver)
                 .WithMany(d => d.Assignments)

@@ -13,7 +13,11 @@ namespace BusTracker.Models
         public string? Origin { get; set; }
         public string? Destination { get; set; }
         public bool IsActive { get; set; } = true;
+        public int CompanyId { get; set; }
+        public Company Company { get; set; } = null;
+
         [JsonIgnore]
+
         public ICollection<RouteStop>? Stops { get; set; }
         public ICollection<BusAssignment>? Assignments { get; set; }
     }

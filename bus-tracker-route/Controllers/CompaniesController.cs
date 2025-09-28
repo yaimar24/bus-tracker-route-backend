@@ -7,7 +7,7 @@ using bus_tracker_route.Models.DTO;
 namespace BusTracker.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
     public class CompaniesController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -17,46 +17,66 @@ namespace BusTracker.Controllers
             _db = db;
         }
 
-        // GET /companies
-        // Lista todas las empresas
+        // GET: api/companies
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var companies = await _db.Companies
-                .AsNoTracking()
-                .ToListAsync();
-
+            var companies = await _db.Companies.AsNoTracking().ToListAsync();
             return Ok(companies);
         }
 
-        // GET /companies/5
-        // Detalle de una empresa
+        // GET: api/companies/5
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var company = await _db.Companies
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == id);
-
+            var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
             if (company == null) return NotFound();
-
             return Ok(company);
         }
 
-        // GET /companies/5/buses
-        // Lista todos los buses de una empresa, incluyendo su ruta asignada
-        [HttpGet("{companyId}/routes")]
-        public async Task<IActionResult> GetRoutesByCompany(int companyId)
+        // POST: api/companies
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] CompanyDto dto)
         {
-            var routes = await _db.BusAssignments
-                .Where(a => a.Bus.CompanyId == companyId && a.IsActive)
-                .Select(a => a.BusRoute)
-                .Distinct()
-                .AsNoTracking()
-                .ToListAsync();
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return BadRequest("El nombre de la compañía es obligatorio.");
 
-            return Ok(routes);
+            var company = new Company
+            {
+                Name = dto.Name,
+                ContactInfo = dto.ContactInfo
+            };
+
+            _db.Companies.Add(company);
+            await _db.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetById), new { id = company.Id }, company);
         }
 
+        // PUT: api/companies/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] CompanyDto dto)
+        {
+            var company = await _db.Companies.FindAsync(id);
+            if (company == null) return NotFound();
+
+            company.Name = dto.Name;
+            company.ContactInfo = dto.ContactInfo;
+
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // DELETE: api/companies/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var company = await _db.Companies.FindAsync(id);
+            if (company == null) return NotFound();
+
+            _db.Companies.Remove(company);
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }

@@ -9,6 +9,8 @@ public class BusRouteDto
     public string? Origin { get; set; }
     public string? Destination { get; set; }
     public bool IsActive { get; set; }
+
+    public int CompanyId { get; set; }
     public List<RouteStopDto> Stops { get; set; } = new();
 }
 
