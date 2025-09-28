@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using BusTracker.Data;
 using BusTracker.Models;
+using bus_tracker_route.Models.DTO;
 
 namespace BusTracker.Controllers
 {
@@ -44,19 +45,18 @@ namespace BusTracker.Controllers
 
         // GET /companies/5/buses
         // Lista todos los buses de una empresa, incluyendo su ruta asignada
-        [HttpGet("{id}/buses")]
-        public async Task<IActionResult> GetBusesByCompany(int id)
+        [HttpGet("{companyId}/routes")]
+        public async Task<IActionResult> GetRoutesByCompany(int companyId)
         {
-            var buses = await _db.Buses
-                .Where(b => b.CompanyId == id)
-                .Include(b => b.Assignments)
-                    .ThenInclude(a => a.BusRoute)
+            var routes = await _db.BusAssignments
+                .Where(a => a.Bus.CompanyId == companyId && a.IsActive)
+                .Select(a => a.BusRoute)
+                .Distinct()
                 .AsNoTracking()
                 .ToListAsync();
 
-            if (buses.Count == 0) return NotFound("No hay buses registrados para esta empresa.");
-
-            return Ok(buses);
+            return Ok(routes);
         }
+
     }
 }

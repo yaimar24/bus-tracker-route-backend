@@ -58,7 +58,7 @@ public class GpsController : ControllerBase
         };
         _db.BusPositionsHistory.Add(history);
 
-        await _db.SaveChangesAsync();
+        //await _db.SaveChangesAsync();
 
         // Emitir por SignalR
         await _hub.Clients.All.SendAsync("ReceivePosition", new

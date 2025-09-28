@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using BusTracker.Data;
 using BusTracker.Models;
+using bus_tracker_route.Models.DTO;
 
 namespace BusTracker.Controllers
 {
@@ -129,24 +130,52 @@ namespace BusTracker.Controllers
             await _db.SaveChangesAsync();
             return NoContent();
         }
+        [HttpGet("{routeId}/buses")]
+        public async Task<IActionResult> GetBusesByRoute(int routeId)
+        {
+            // Verificar que la ruta exista
+            var route = await _db.BusRoutes
+                .Include(r => r.Stops.OrderBy(s => s.Order)) // incluimos las paradas en orden
+                .FirstOrDefaultAsync(r => r.Id == routeId);
+
+            if (route == null)
+                return NotFound($"Ruta con id {routeId} no encontrada.");
+
+            // Buscar buses asignados a la ruta
+            var buses = await _db.BusAssignments
+                .Where(a => a.BusRouteId == routeId)
+                .Include(a => a.Bus) // cargamos la relación con Bus
+                .Select(a => new BusWithRouteDto
+                {
+                    Id = a.Bus.Id,
+                    PlateNumber = a.Bus.PlateNumber,
+                    Model = a.Bus.Model,
+                    Capacity = a.Bus.Capacity ?? 0,
+                    IsActive = a.Bus.IsActive,
+                    Route = new RouteDto
+                    {
+                        Id = route.Id,
+                        Name = route.Name,
+                        Stops = route.Stops.Select(s => new RouteStopDto
+                        {
+                            Id = s.Id,
+                            Name = s.Name,
+                            Latitude = s.Latitude,
+                            Longitude = s.Longitude,
+                            Order = s.Order
+                        }).ToList()
+                    }
+                })
+                .Distinct()
+                .ToListAsync();
+
+            return Ok(buses);
+        }
+
     }
 
-    // DTOs
-    public class BusRouteDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string? Description { get; set; }
-        public string? Origin { get; set; }
-        public string? Destination { get; set; }
-        public bool IsActive { get; set; }
-        public List<RouteStopDto> Stops { get; set; } = new();
-    }
 
-    public class RouteStopDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public int Order { get; set; }
-    }
+ 
+
+
 }
